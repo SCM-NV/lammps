@@ -24,6 +24,7 @@
 #include "kspace.h"
 #include "modify.h"
 #include "neighbor.h"
+#include "timer.h"
 #include "update.h"
 
 #include <cstring>
@@ -31,12 +32,14 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
+static AMSPipe *saved_pipe = nullptr;
+
 /******************************************************************************************
  * This fix enables LAMMPS to serve as an AMSPipe worker.
  ******************************************************************************************/
 
 FixAMSPipe::FixAMSPipe(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), irregular(new Irregular(lmp)), pipe(nullptr)
+  Fix(lmp, narg, arg), irregular(new Irregular(lmp)), pipe(nullptr), exiting(false)
 {
   if (strcmp(style,"amspipe") != 0 && narg != 3)
     error->all(FLERR,"Illegal fix amspipe command");
@@ -85,7 +88,12 @@ int FixAMSPipe::setmask()
 void FixAMSPipe::init()
 {
   if (comm->me == 0) {
-    pipe = new AMSPipe();
+    if (saved_pipe) {
+      pipe = saved_pipe;
+      saved_pipe = nullptr;
+    } else {
+      pipe = new AMSPipe();
+    }
   }
 
   // asks for evaluation of PE at first step
@@ -104,7 +112,9 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
 
     try {
       if (msg.name == "Exit") {
-        this->error->done(0);
+        update->nsteps = update->ntimestep - 1;
+        exiting = true;
+
         break;
 
       } else if (error) { // We still have an error buffered
@@ -115,6 +125,11 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           // Non-"Set" method called: return buffered error and clear it.
           pipe->send_return(error->status, error->method, error->argument, error->what());
           error.reset();
+          if (exiting) {
+            saved_pipe = pipe;
+            pipe = nullptr;
+            return;
+          }
         }
 
       } else if (msg.name == "Hello") {
@@ -133,8 +148,9 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         pipe->extract_SetSystem(msg, atomSymbols, coords, latticeVectors, totalCharge, bonds, bondOrders, atomicInfo);
 
         if (!prevAtomSymbols.empty() && atomSymbols != prevAtomSymbols) {
-          //FIXME: Reinitialize LAMMPS in a saner way
-          std::exit(0);
+          update->nsteps = update->ntimestep - 1;
+          exiting = true;
+          throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "", "Reinitialization required");
         }
 
       } else if (msg.name == "Solve") {
@@ -271,6 +287,10 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
 
 void FixAMSPipe::final_integrate()
 {
+  if (exiting) {
+    timer->force_timeout();
+    return;
+  }
 
   AMSPipe::Results results;
   results.energy = modify->compute[modify->find_compute("thermo_pe")]->compute_scalar() * potconv;

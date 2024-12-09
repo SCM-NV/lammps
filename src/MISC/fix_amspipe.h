@@ -43,6 +43,8 @@ class FixAMSPipe : public Fix {
   class Irregular *irregular;
   AMSPipe *pipe;
 
+  bool exiting;
+
   // Variables holding our current system:
   std::vector<std::string> atomSymbols;
   std::vector<double>      coords;
