@@ -55,9 +55,12 @@ FixAMSPipe::FixAMSPipe(LAMMPS *lmp, int narg, char **arg) :
 
   modify->add_compute("amspipe_pressure all pressure NULL virial");
 
-  // conversions from LAMMPS units to atomic units, which are used by AMSPipe
-  potconv=3.1668152e-06/force->boltz;
-  posconv=0.52917721*force->angstrom;
+  // conversions from LAMMPS "real" units to atomic units, which are used by AMSPipe
+  // empirical reconstruction of the conversion through ASE
+  potconv=3.166815455e-06/force->boltz;
+  // conversion using force->boltz from LAMMPS "electron" units
+  // potconv=3.16681534e-06/force->boltz;
+  posconv=0.5291772105638411*force->angstrom;
   posconv3=posconv*posconv*posconv;
   gradconv = -1 * potconv * posconv;
   stressconv = -1/force->nktv2p*potconv*posconv3;
