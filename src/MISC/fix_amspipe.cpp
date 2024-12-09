@@ -36,7 +36,7 @@ using namespace FixConst;
  ******************************************************************************************/
 
 FixAMSPipe::FixAMSPipe(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), irregular(new Irregular(lmp)), call_pipe(nullptr), reply_pipe(nullptr)
+  Fix(lmp, narg, arg), irregular(new Irregular(lmp)), pipe(nullptr)
 {
   if (strcmp(style,"amspipe") != 0 && narg != 3)
     error->all(FLERR,"Illegal fix amspipe command");
@@ -66,8 +66,7 @@ FixAMSPipe::FixAMSPipe(LAMMPS *lmp, int narg, char **arg) :
 FixAMSPipe::~FixAMSPipe()
 {
   delete irregular;
-  delete call_pipe;
-  delete reply_pipe;
+  delete pipe;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -86,8 +85,7 @@ int FixAMSPipe::setmask()
 void FixAMSPipe::init()
 {
   if (comm->me == 0) {
-    call_pipe = new AMSCallPipe();
-    reply_pipe = new AMSReplyPipe();
+    pipe = new AMSPipe();
   }
 
   // asks for evaluation of PE at first step
@@ -101,7 +99,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
   std::unique_ptr<AMSPipe::Error> error;
 
   while (true) {
-    auto msg = call_pipe->receive();
+    auto msg = pipe->receive();
     // fprintf(stderr, "Method called: %s\n", msg.name.c_str());
 
     try {
@@ -115,24 +113,24 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           continue;
         } else {
           // Non-"Set" method called: return buffered error and clear it.
-          reply_pipe->send_return(error->status, error->method, error->argument, error->what());
+          pipe->send_return(error->status, error->method, error->argument, error->what());
           error.reset();
         }
 
       } else if (msg.name == "Hello") {
         int64_t version;
-        call_pipe->extract_Hello(msg, version);
-        reply_pipe->send_return( version == 1 ? AMSPipe::Status::success : AMSPipe::Status::unknown_version);
+        pipe->extract_Hello(msg, version);
+        pipe->send_return( version == 1 ? AMSPipe::Status::success : AMSPipe::Status::unknown_version);
 
       } else if (msg.name == "SetCoords") {
-        call_pipe->extract_SetCoords(msg, coords.data());
+        pipe->extract_SetCoords(msg, coords.data());
 
       } else if (msg.name == "SetLattice") {
-        call_pipe->extract_SetLattice(msg, latticeVectors);
+        pipe->extract_SetLattice(msg, latticeVectors);
 
       } else if (msg.name == "SetSystem") {
         std::vector<std::string> prevAtomSymbols = std::move(atomSymbols);
-        call_pipe->extract_SetSystem(msg, atomSymbols, coords, latticeVectors, totalCharge, bonds, bondOrders, atomicInfo);
+        pipe->extract_SetSystem(msg, atomSymbols, coords, latticeVectors, totalCharge, bonds, bondOrders, atomicInfo);
 
         if (!prevAtomSymbols.empty() && atomSymbols != prevAtomSymbols) {
           //FIXME: Reinitialize LAMMPS in a saner way
@@ -144,7 +142,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         bool keepResults;
         std::string prevTitle;
 
-        call_pipe->extract_Solve(msg, request, keepResults, prevTitle);
+        pipe->extract_Solve(msg, request, keepResults, prevTitle);
 
         //std::cout << "Request:" << std::endl;
         //std::cout << "   title: " << request.title << std::endl;
@@ -245,14 +243,14 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
 
       } else if (msg.name == "DeleteResults") {
         std::string title;
-        call_pipe->extract_DeleteResults(msg, title);
+        pipe->extract_DeleteResults(msg, title);
         //std::cout << "DeleteResults title: " << title << std::endl;
 
         if (keptResults.erase(title) == 0) {
           throw AMSPipe::Error(AMSPipe::Status::logic_error, "DeleteResults", "title",
                                "DeleteResults called with title that was never stored");
         }
-        reply_pipe->send_return(AMSPipe::Status::success); // we are so simple that we never fail ...
+        pipe->send_return(AMSPipe::Status::success); // we are so simple that we never fail ...
 
       } else {
         throw AMSPipe::Error(AMSPipe::Status::unknown_method, msg.name, "", "unknown method "+msg.name+" called");
@@ -264,7 +262,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         if (!error) error.reset(new AMSPipe::Error(exc));
       } else {
         // Exception thrown during non-"Set" method: return error immediately.
-        reply_pipe->send_return(exc.status, exc.method, exc.argument, exc.what());
+        pipe->send_return(exc.status, exc.method, exc.argument, exc.what());
       }
     }
   }
@@ -314,10 +312,10 @@ void FixAMSPipe::final_integrate()
 
 
   if (true) { // we are so simple that we never fail ...
-    reply_pipe->send_results(results);
-    reply_pipe->send_return(AMSPipe::Status::success);
+    pipe->send_results(results);
+    pipe->send_return(AMSPipe::Status::success);
   } else { // ... but if we did, we'd send a runtime_error as the return code
-    reply_pipe->send_return(AMSPipe::Status::runtime_error, "Solve", "", "error evaluating the potential");
+    pipe->send_return(AMSPipe::Status::runtime_error, "Solve", "", "error evaluating the potential");
   }
 
   double **x = atom->x;

@@ -41,8 +41,7 @@ class FixAMSPipe : public Fix {
 
  private:
   class Irregular *irregular;
-  AMSCallPipe *call_pipe;
-  AMSReplyPipe *reply_pipe;
+  AMSPipe *pipe;
 
   // Variables holding our current system:
   std::vector<std::string> atomSymbols;
