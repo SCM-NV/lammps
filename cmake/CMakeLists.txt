@@ -370,6 +370,11 @@ if(PKG_ADIOS)
   target_link_libraries(lammps PRIVATE adios2::adios2)
 endif()
 
+if(PKG_AMSPIPE)
+  find_package(amspipe)
+  target_link_libraries(lammps PRIVATE amspipe::amspipe)
+endif()
+
 if(NOT CMAKE_CROSSCOMPILING)
   find_package(MPI QUIET)
   option(BUILD_MPI "Build MPI version" ${MPI_FOUND})
