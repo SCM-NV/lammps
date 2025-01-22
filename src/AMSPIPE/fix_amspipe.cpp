@@ -206,7 +206,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         std::vector<int> shift(coords.size());
         if (prevFrac.size() == coords.size()) {
           for (int i = 0; i < coords.size(); i++) {
-            shift[i] = std::round(fractional[i] - prevFrac[i]);
+            shift[i] = std::nearbyint(fractional[i] - prevFrac[i]);
           }
         } else {
           prevFrac.clear();
