@@ -59,7 +59,7 @@ class FixAMSPipe : public Fix {
   // Cache of results we have kept:
   std::set<std::string> keptResults; // For this demo we just keep their titles and no actual data ...
 
-  std::vector<double>      prevFrac, prevCoord;
+  std::vector<double>      prevFrac;
 
   double gradconv, potconv, posconv, stressconv, posconv3;
 

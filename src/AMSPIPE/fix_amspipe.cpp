@@ -358,7 +358,6 @@ void FixAMSPipe::final_integrate()
       prevFrac[i+d] = coords[i+d] / latticeVectors[3*d+d];
     }
   }
-  prevCoord = coords;
 
 }
 
