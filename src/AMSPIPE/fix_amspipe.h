@@ -47,22 +47,22 @@ class FixAMSPipe : public Fix {
 
   // Variables holding our current system:
   std::vector<std::string> atomSymbols;
-  std::vector<double>      coords;
-  std::vector<double>      latticeVectors;
-  double                   totalCharge = 0.0;
-  std::vector<int64_t>     bonds;
-  std::vector<double>      bondOrders;
+  std::vector<double> coords;
+  std::vector<double> latticeVectors;
+  double totalCharge = 0.0;
+  std::vector<int64_t> bonds;
+  std::vector<double> bondOrders;
   std::vector<std::string> atomicInfo;
 
-  std::vector<double>      gradients;
+  std::vector<double> gradients;
 
   // Cache of results we have kept:
-  std::set<std::string> keptResults; // For this demo we just keep their titles and no actual data ...
+  std::set<std::string>
+      keptResults;    // For this demo we just keep their titles and no actual data ...
 
-  std::vector<double>      prevFrac;
+  std::vector<double> prevFrac;
 
   double gradconv, potconv, posconv, stressconv, posconv3;
-
 };
 
 }    // namespace LAMMPS_NS

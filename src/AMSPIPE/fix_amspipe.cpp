@@ -1,4 +1,3 @@
-// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -39,32 +38,27 @@ static AMSPipe *saved_pipe = nullptr;
  ******************************************************************************************/
 
 FixAMSPipe::FixAMSPipe(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), irregular(new Irregular(lmp)), pipe(nullptr), exiting(false)
+    Fix(lmp, narg, arg), irregular(new Irregular(lmp)), pipe(nullptr), exiting(false)
 {
-  if (strcmp(style,"amspipe") != 0 && narg != 3)
-    error->all(FLERR,"Illegal fix amspipe command");
+  if (strcmp(style, "amspipe") != 0 && narg != 3) error->all(FLERR, "Illegal fix amspipe command");
 
-  if (strcmp(arg[1],"all") != 0)
-    error->warning(FLERR,"Fix amspipe always uses group all");
+  if (strcmp(arg[1], "all") != 0) error->warning(FLERR, "Fix amspipe always uses group all");
 
-  if (atom->tag_enable == 0)
-    error->all(FLERR,"Cannot use fix amspipe without atom IDs");
+  if (atom->tag_enable == 0) error->all(FLERR, "Cannot use fix amspipe without atom IDs");
 
-  if (atom->tag_consecutive() == 0)
-    error->all(FLERR,"Fix amspipe requires consecutive atom IDs");
+  if (atom->tag_consecutive() == 0) error->all(FLERR, "Fix amspipe requires consecutive atom IDs");
 
   modify->add_compute("amspipe_pressure all pressure NULL virial");
 
   // conversions from LAMMPS "real" units to atomic units, which are used by AMSPipe
   // empirical reconstruction of the conversion through ASE
-  potconv=3.166815455e-06/force->boltz;
+  potconv = 3.166815455e-06 / force->boltz;
   // conversion using force->boltz from LAMMPS "electron" units
   // potconv=3.16681534e-06/force->boltz;
-  posconv=0.5291772105638411*force->angstrom;
-  posconv3=posconv*posconv*posconv;
+  posconv = 0.5291772105638411 * force->angstrom;
+  posconv3 = posconv * posconv * posconv;
   gradconv = -1 * potconv * posconv;
-  stressconv = -1/force->nktv2p*potconv*posconv3;
-
+  stressconv = -1 / force->nktv2p * potconv * posconv3;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -120,7 +114,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
 
         break;
 
-      } else if (error) { // We still have an error buffered
+      } else if (error) {    // We still have an error buffered
         if (msg.name.rfind("Set", 0) == 0) {
           // Calls to "Set" methods are ignored while an error is buffered.
           continue;
@@ -138,7 +132,8 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
       } else if (msg.name == "Hello") {
         int64_t version;
         pipe->extract_Hello(msg, version);
-        pipe->send_return( version == 1 ? AMSPipe::Status::success : AMSPipe::Status::unknown_version);
+        pipe->send_return(version == 1 ? AMSPipe::Status::success
+                                       : AMSPipe::Status::unknown_version);
 
       } else if (msg.name == "SetCoords") {
         pipe->extract_SetCoords(msg, coords.data());
@@ -150,7 +145,8 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         if (latticeVectors.size() != prevLatticeSize) {
           update->nsteps = update->ntimestep - 1;
           exiting = true;
-          throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "", "Reinitialization required");
+          throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "",
+                               "Reinitialization required");
         }
 
         lattice_changed = true;
@@ -158,12 +154,15 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
       } else if (msg.name == "SetSystem") {
         std::vector<std::string> prevAtomSymbols = std::move(atomSymbols);
         int prevLatticeSize = latticeVectors.size();
-        pipe->extract_SetSystem(msg, atomSymbols, coords, latticeVectors, totalCharge, bonds, bondOrders, atomicInfo);
+        pipe->extract_SetSystem(msg, atomSymbols, coords, latticeVectors, totalCharge, bonds,
+                                bondOrders, atomicInfo);
 
-        if (!prevAtomSymbols.empty() && (atomSymbols != prevAtomSymbols  || latticeVectors.size() != prevLatticeSize)) {
+        if (!prevAtomSymbols.empty() &&
+            (atomSymbols != prevAtomSymbols || latticeVectors.size() != prevLatticeSize)) {
           update->nsteps = update->ntimestep - 1;
           exiting = true;
-          throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "", "Reinitialization required");
+          throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "",
+                               "Reinitialization required");
         }
 
         lattice_changed = true;
@@ -190,7 +189,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         if (lattice_changed) {
           for (int d = 0; d < nVectors; d++) {
             domain->boxlo[d] = 0;
-            domain->boxhi[d] = latticeVectors[3*d+d] * posconv;
+            domain->boxhi[d] = latticeVectors[3 * d + d] * posconv;
           }
 
           // do error checks on simulation box and set small for triclinic boxes
@@ -207,7 +206,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           std::vector<double> fractional(coords.size());
           for (int i = 0; i < coords.size(); i += 3) {
             for (int d = 0; d < nVectors; d++) {
-              fractional[i+d] = coords[i+d] / latticeVectors[3*d+d];
+              fractional[i + d] = coords[i + d] / latticeVectors[3 * d + d];
             }
           }
           std::vector<int> shift(coords.size());
@@ -217,16 +216,12 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
             }
           } else {
             prevFrac.clear();
-            for (int i = 0; i < coords.size(); i++) {
-              shift[i] = std::floor(fractional[i]);
-            }
+            for (int i = 0; i < coords.size(); i++) { shift[i] = std::floor(fractional[i]); }
           }
-          for (int i = 0; i < coords.size(); i++) {
-            fractional[i] -= shift[i];
-          }
+          for (int i = 0; i < coords.size(); i++) { fractional[i] -= shift[i]; }
           for (int i = 0; i < coords.size(); i += 3) {
             for (int d = 0; d < nVectors; d++) {
-              coords[i+d] = fractional[i+d] * latticeVectors[3*d+d];
+              coords[i + d] = fractional[i + d] * latticeVectors[3 * d + d];
             }
           }
         }
@@ -237,19 +232,17 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         if (igroup == atom->firstgroup) nlocal = atom->nfirst;
         for (int i = 0; i < nlocal; i++) {
           if (mask[i] & groupbit) {
-            x[i][0]=coords[3*(atom->tag[i]-1)+0]*posconv;
-            x[i][1]=coords[3*(atom->tag[i]-1)+1]*posconv;
-            x[i][2]=coords[3*(atom->tag[i]-1)+2]*posconv;
+            x[i][0] = coords[3 * (atom->tag[i] - 1) + 0] * posconv;
+            x[i][1] = coords[3 * (atom->tag[i] - 1) + 1] * posconv;
+            x[i][2] = coords[3 * (atom->tag[i] - 1) + 2] * posconv;
           }
         }
 
-        if (force->kspace && domain->box_change) {
-          force->kspace->setup();
-        }
+        if (force->kspace && domain->box_change) { force->kspace->setup(); }
 
         // compute PE. makes sure that it will be evaluated at next step
         modify->compute[modify->find_compute("thermo_pe")]->invoked_scalar = -1;
-        modify->addstep_compute_all(update->ntimestep+1);
+        modify->addstep_compute_all(update->ntimestep + 1);
         return;
 
       } else if (msg.name == "DeleteResults") {
@@ -260,13 +253,14 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           throw AMSPipe::Error(AMSPipe::Status::logic_error, "DeleteResults", "title",
                                "DeleteResults called with title that was never stored");
         }
-        pipe->send_return(AMSPipe::Status::success); // we are so simple that we never fail ...
+        pipe->send_return(AMSPipe::Status::success);    // we are so simple that we never fail ...
 
       } else {
-        throw AMSPipe::Error(AMSPipe::Status::unknown_method, msg.name, "", "unknown method "+msg.name+" called");
+        throw AMSPipe::Error(AMSPipe::Status::unknown_method, msg.name, "",
+                             "unknown method " + msg.name + " called");
       }
 
-    } catch (const AMSPipe::Error& exc) {
+    } catch (const AMSPipe::Error &exc) {
       if (msg.name.rfind("Set", 0) == 0) {
         // Exception thrown during "Set" method: buffer it for return later.
         if (!error) error.reset(new AMSPipe::Error(exc));
@@ -276,7 +270,6 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
       }
     }
   }
-
 }
 
 void FixAMSPipe::final_integrate()
@@ -293,18 +286,17 @@ void FixAMSPipe::final_integrate()
   results.gradients = gradients.data();
   results.gradients_dim[0] = 3;
   results.gradients_dim[1] = atom->natoms;
-  double **f= atom->f;
+  double **f = atom->f;
 
   // reassembles the force vector from the local arrays
   int nlocal = atom->nlocal;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
   for (int i = 0; i < nlocal; i++) {
-    results.gradients[3*(atom->tag[i]-1)+0] = f[i][0] * gradconv;
-    results.gradients[3*(atom->tag[i]-1)+1] = f[i][1] * gradconv;
-    results.gradients[3*(atom->tag[i]-1)+2] = f[i][2] * gradconv;
+    results.gradients[3 * (atom->tag[i] - 1) + 0] = f[i][0] * gradconv;
+    results.gradients[3 * (atom->tag[i] - 1) + 1] = f[i][1] * gradconv;
+    results.gradients[3 * (atom->tag[i] - 1) + 2] = f[i][2] * gradconv;
   }
   MPI_Reduce(MPI_IN_PLACE, results.gradients, gradients.size(), MPI_DOUBLE, MPI_SUM, 0, world);
-
 
   std::vector<double> stressTensor(9);
 
@@ -336,21 +328,19 @@ void FixAMSPipe::final_integrate()
   double invPosConv = 1 / posconv;
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
-      coords[3*(atom->tag[i]-1)+0] = x[i][0] * invPosConv;
-      coords[3*(atom->tag[i]-1)+1] = x[i][1] * invPosConv;
-      coords[3*(atom->tag[i]-1)+2] = x[i][2] * invPosConv;
+      coords[3 * (atom->tag[i] - 1) + 0] = x[i][0] * invPosConv;
+      coords[3 * (atom->tag[i] - 1) + 1] = x[i][1] * invPosConv;
+      coords[3 * (atom->tag[i] - 1) + 2] = x[i][2] * invPosConv;
     }
   }
 
   prevFrac.resize(coords.size());
   for (int i = 0; i < coords.size(); i += 3) {
     for (int d = 0; d < nVectors; d++) {
-      prevFrac[i+d] = coords[i+d] / latticeVectors[3*d+d];
+      prevFrac[i + d] = coords[i + d] / latticeVectors[3 * d + d];
     }
   }
-
 }
-
 
 void FixAMSPipe::pre_exchange(void)
 {
@@ -369,5 +359,3 @@ void FixAMSPipe::pre_exchange(void)
   if (irregular->migrate_check()) irregular->migrate_atoms();
   if (domain->triclinic) domain->lamda2x(atom->nlocal);
 }
-
-
