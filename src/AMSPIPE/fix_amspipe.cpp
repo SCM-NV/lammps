@@ -293,7 +293,7 @@ void FixAMSPipe::final_integrate()
   }
   MPI_Reduce(MPI_IN_PLACE, results.gradients, gradients.size(), MPI_DOUBLE, MPI_SUM, 0, world);
 
-  std::vector<double> stressTensor(9);
+  double stressTensor[9];
 
   Compute *pressCompute = modify->compute[modify->find_compute("amspipe_pressure")];
   pressCompute->compute_vector();
@@ -307,7 +307,7 @@ void FixAMSPipe::final_integrate()
   stressTensor[7] = stressTensor[5];
   stressTensor[8] = pressCompute->vector[2] * stressconv;
 
-  results.stressTensor = stressTensor.data();
+  results.stressTensor = stressTensor;
   results.stressTensor_dim[0] = 3;
   results.stressTensor_dim[1] = 3;
 
