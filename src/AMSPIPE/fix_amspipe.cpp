@@ -193,7 +193,9 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         }
         if (keepResults) keptResults.insert(request.title);
 
-        for (int d = 0; d < 3; d++) {
+        int nVectors = latticeVectors.size() / 3;
+
+        for (int d = 0; d < nVectors; d++) {
           domain->boxlo[d] = 0;
           domain->boxhi[d] = latticeVectors[3*d+d] * posconv;
         }
@@ -205,29 +207,31 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         // signal that the box has (or may have) changed
         domain->box_change = 1;
 
-        std::vector<double> fractional(coords.size());
-        for (int i = 0; i < coords.size(); i += 3) {
-          for (int d = 0; d < 3; d++) {
-            fractional[i+d] = coords[i+d] / latticeVectors[3*d+d];
+        if (nVectors > 0) {
+          std::vector<double> fractional(coords.size());
+          for (int i = 0; i < coords.size(); i += 3) {
+            for (int d = 0; d < nVectors; d++) {
+              fractional[i+d] = coords[i+d] / latticeVectors[3*d+d];
+            }
           }
-        }
-        std::vector<int> shift(coords.size());
-        if (prevFrac.size() == coords.size()) {
+          std::vector<int> shift(coords.size());
+          if (prevFrac.size() == coords.size()) {
+            for (int i = 0; i < coords.size(); i++) {
+              shift[i] = std::nearbyint(fractional[i] - prevFrac[i]);
+            }
+          } else {
+            prevFrac.clear();
+            for (int i = 0; i < coords.size(); i++) {
+              shift[i] = std::floor(fractional[i]);
+            }
+          }
           for (int i = 0; i < coords.size(); i++) {
-            shift[i] = std::nearbyint(fractional[i] - prevFrac[i]);
+            fractional[i] -= shift[i];
           }
-        } else {
-          prevFrac.clear();
-          for (int i = 0; i < coords.size(); i++) {
-            shift[i] = std::floor(fractional[i]);
-          }
-        }
-        for (int i = 0; i < coords.size(); i++) {
-          fractional[i] -= shift[i];
-        }
-        for (int i = 0; i < coords.size(); i += 3) {
-          for (int d = 0; d < 3; d++) {
-            coords[i+d] = fractional[i+d] * latticeVectors[3*d+d];
+          for (int i = 0; i < coords.size(); i += 3) {
+            for (int d = 0; d < nVectors; d++) {
+              coords[i+d] = fractional[i+d] * latticeVectors[3*d+d];
+            }
           }
         }
 
@@ -349,6 +353,9 @@ void FixAMSPipe::final_integrate()
     pipe->send_return(AMSPipe::Status::runtime_error, "Solve", "", "error evaluating the potential");
   }
 
+  int nVectors = latticeVectors.size() / 3;
+  if (nVectors == 0) return;
+
   double **x = atom->x;
   int *mask = atom->mask;
   double invPosConv = 1 / posconv;
@@ -362,7 +369,7 @@ void FixAMSPipe::final_integrate()
 
   prevFrac.resize(coords.size());
   for (int i = 0; i < coords.size(); i += 3) {
-    for (int d = 0; d < 3; d++) {
+    for (int d = 0; d < nVectors; d++) {
       prevFrac[i+d] = coords[i+d] / latticeVectors[3*d+d];
     }
   }
