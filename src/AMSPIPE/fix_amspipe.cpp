@@ -108,6 +108,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
 {
   // Variable to store the error until we send the corresponding return message:
   std::unique_ptr<AMSPipe::Error> error;
+  bool lattice_changed = false;
 
   while (true) {
     auto msg = pipe->receive();
@@ -152,6 +153,8 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "", "Reinitialization required");
         }
 
+        lattice_changed = true;
+
       } else if (msg.name == "SetSystem") {
         std::vector<std::string> prevAtomSymbols = std::move(atomSymbols);
         int prevLatticeSize = latticeVectors.size();
@@ -162,6 +165,8 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           exiting = true;
           throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "", "Reinitialization required");
         }
+
+        lattice_changed = true;
 
       } else if (msg.name == "Solve") {
         AMSPipe::SolveRequest request;
@@ -182,17 +187,21 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
 
         int nVectors = latticeVectors.size() / 3;
 
-        for (int d = 0; d < nVectors; d++) {
-          domain->boxlo[d] = 0;
-          domain->boxhi[d] = latticeVectors[3*d+d] * posconv;
-        }
+        if (lattice_changed) {
+          for (int d = 0; d < nVectors; d++) {
+            domain->boxlo[d] = 0;
+            domain->boxhi[d] = latticeVectors[3*d+d] * posconv;
+          }
 
-        // do error checks on simulation box and set small for triclinic boxes
-        domain->set_initial_box();
-        // reset global and local box using the new box dimensions
-        domain->reset_box();
-        // signal that the box has (or may have) changed
-        domain->box_change = 1;
+          // do error checks on simulation box and set small for triclinic boxes
+          domain->set_initial_box();
+          // reset global and local box using the new box dimensions
+          domain->reset_box();
+          // signal that the box has (or may have) changed
+          domain->box_change = 1;
+
+          lattice_changed = true;
+        }
 
         if (nVectors > 0) {
           std::vector<double> fractional(coords.size());
@@ -234,7 +243,7 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           }
         }
 
-        if (force->kspace) {
+        if (force->kspace && domain->box_change) {
           force->kspace->setup();
         }
 
