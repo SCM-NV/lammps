@@ -144,13 +144,21 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         pipe->extract_SetCoords(msg, coords.data());
 
       } else if (msg.name == "SetLattice") {
+        int prevLatticeSize = latticeVectors.size();
         pipe->extract_SetLattice(msg, latticeVectors);
+
+        if (latticeVectors.size() != prevLatticeSize) {
+          update->nsteps = update->ntimestep - 1;
+          exiting = true;
+          throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "", "Reinitialization required");
+        }
 
       } else if (msg.name == "SetSystem") {
         std::vector<std::string> prevAtomSymbols = std::move(atomSymbols);
+        int prevLatticeSize = latticeVectors.size();
         pipe->extract_SetSystem(msg, atomSymbols, coords, latticeVectors, totalCharge, bonds, bondOrders, atomicInfo);
 
-        if (!prevAtomSymbols.empty() && atomSymbols != prevAtomSymbols) {
+        if (!prevAtomSymbols.empty() && (atomSymbols != prevAtomSymbols  || latticeVectors.size() != prevLatticeSize)) {
           update->nsteps = update->ntimestep - 1;
           exiting = true;
           throw AMSPipe::Error(AMSPipe::Status::runtime_error, msg.name, "", "Reinitialization required");
