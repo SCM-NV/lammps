@@ -111,7 +111,6 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
 
   while (true) {
     auto msg = pipe->receive();
-    // fprintf(stderr, "Method called: %s\n", msg.name.c_str());
 
     try {
       if (msg.name == "Exit") {
@@ -170,18 +169,6 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         std::string prevTitle;
 
         pipe->extract_Solve(msg, request, keepResults, prevTitle);
-
-        //std::cout << "Request:" << std::endl;
-        //std::cout << "   title: " << request.title << std::endl;
-        //std::cout << "   gradients: " << request.gradients << std::endl;
-        //std::cout << "   stressTensor: " << request.stressTensor  << std::endl;
-        //std::cout << "   elasticTensor: " << request.elasticTensor  << std::endl;
-        //std::cout << "   hessian: " << request.hessian  << std::endl;
-        //std::cout << "   dipoleMoment: " << request.dipoleMoment  << std::endl;
-        //std::cout << "   dipoleGradients: " << request.dipoleGradients  << std::endl;
-        //std::cout << "   other: " << request.other  << std::endl;
-        //std::cout << "keepResults: " << keepResults << std::endl;
-        //if (!prevTitle.empty()) std::cout << "prevTitle: " << prevTitle << std::endl;
 
         if (keptResults.find(request.title) != keptResults.end()) {
           throw AMSPipe::Error(AMSPipe::Status::logic_error, "Solve", "title",
@@ -247,22 +234,6 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           }
         }
 
-#if 0
-  // check if kspace solver is used
-  if (reset_flag && kspace_flag) {
-    // reset kspace, pair, angles, ... b/c simulation box might have changed.
-    //   kspace->setup() is in some cases not enough since, e.g., g_ewald needs
-    //   to be reestimated due to changes in box dimensions.
-    force->init();
-    // setup_grid() is necessary for pppm since init() is not calling
-    //   setup() nor setup_grid() upon calling init().
-    if (force->kspace->pppmflag) force->kspace->setup_grid();
-    // other kspace styles might need too another setup()?
-  } else if (!reset_flag && kspace_flag) {
-    // original version
-    force->kspace->setup();
-  }
-#endif
         if (force->kspace) {
           force->kspace->setup();
         }
@@ -275,7 +246,6 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
       } else if (msg.name == "DeleteResults") {
         std::string title;
         pipe->extract_DeleteResults(msg, title);
-        //std::cout << "DeleteResults title: " << title << std::endl;
 
         if (keptResults.erase(title) == 0) {
           throw AMSPipe::Error(AMSPipe::Status::logic_error, "DeleteResults", "title",
@@ -345,13 +315,9 @@ void FixAMSPipe::final_integrate()
   results.stressTensor_dim[0] = 3;
   results.stressTensor_dim[1] = 3;
 
-
-  if (true) { // we are so simple that we never fail ...
-    pipe->send_results(results);
-    pipe->send_return(AMSPipe::Status::success);
-  } else { // ... but if we did, we'd send a runtime_error as the return code
-    pipe->send_return(AMSPipe::Status::runtime_error, "Solve", "", "error evaluating the potential");
-  }
+  pipe->send_results(results);
+  // we are so simple that we never fail ...
+  pipe->send_return(AMSPipe::Status::success);
 
   int nVectors = latticeVectors.size() / 3;
   if (nVectors == 0) return;
