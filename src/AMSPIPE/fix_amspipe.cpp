@@ -227,15 +227,11 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
         }
 
         double **x = atom->x;
-        int *mask = atom->mask;
         int nlocal = atom->nlocal;
-        if (igroup == atom->firstgroup) nlocal = atom->nfirst;
         for (int i = 0; i < nlocal; i++) {
-          if (mask[i] & groupbit) {
-            x[i][0] = coords[3 * (atom->tag[i] - 1) + 0] * posconv;
-            x[i][1] = coords[3 * (atom->tag[i] - 1) + 1] * posconv;
-            x[i][2] = coords[3 * (atom->tag[i] - 1) + 2] * posconv;
-          }
+          x[i][0] = coords[3 * (atom->tag[i] - 1) + 0] * posconv;
+          x[i][1] = coords[3 * (atom->tag[i] - 1) + 1] * posconv;
+          x[i][2] = coords[3 * (atom->tag[i] - 1) + 2] * posconv;
         }
 
         if (force->kspace && domain->box_change) { force->kspace->setup(); }
@@ -290,7 +286,6 @@ void FixAMSPipe::final_integrate()
 
   // reassembles the force vector from the local arrays
   int nlocal = atom->nlocal;
-  if (igroup == atom->firstgroup) nlocal = atom->nfirst;
   for (int i = 0; i < nlocal; i++) {
     results.gradients[3 * (atom->tag[i] - 1) + 0] = f[i][0] * gradconv;
     results.gradients[3 * (atom->tag[i] - 1) + 1] = f[i][1] * gradconv;
@@ -324,14 +319,11 @@ void FixAMSPipe::final_integrate()
   if (nVectors == 0) return;
 
   double **x = atom->x;
-  int *mask = atom->mask;
   double invPosConv = 1 / posconv;
   for (int i = 0; i < nlocal; i++) {
-    if (mask[i] & groupbit) {
-      coords[3 * (atom->tag[i] - 1) + 0] = x[i][0] * invPosConv;
-      coords[3 * (atom->tag[i] - 1) + 1] = x[i][1] * invPosConv;
-      coords[3 * (atom->tag[i] - 1) + 2] = x[i][2] * invPosConv;
-    }
+    coords[3 * (atom->tag[i] - 1) + 0] = x[i][0] * invPosConv;
+    coords[3 * (atom->tag[i] - 1) + 1] = x[i][1] * invPosConv;
+    coords[3 * (atom->tag[i] - 1) + 2] = x[i][2] * invPosConv;
   }
 
   prevFrac.resize(coords.size());
