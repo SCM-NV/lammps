@@ -234,7 +234,9 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
           x[i][2] = coords[3 * (atom->tag[i] - 1) + 2] * posconv;
         }
 
-        if (force->kspace && domain->box_change) { force->kspace->setup(); }
+        if (force->kspace && lattice_changed) { force->kspace->setup(); }
+
+        lattice_changed = false;
 
         // compute PE. makes sure that it will be evaluated at next step
         modify->compute[modify->find_compute("thermo_pe")]->invoked_scalar = -1;
