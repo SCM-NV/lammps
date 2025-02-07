@@ -24,6 +24,7 @@
 #include "modify.h"
 #include "neighbor.h"
 #include "timer.h"
+#include "universe.h"
 #include "update.h"
 
 #include <cstring>
@@ -93,6 +94,8 @@ void FixAMSPipe::init()
     }
   }
 
+  first_call = true;
+
   // asks for evaluation of PE at first step
   modify->compute[modify->find_compute("thermo_pe")]->invoked_scalar = -1;
   modify->addstep_compute_all(update->ntimestep + 1);
@@ -103,6 +106,13 @@ void FixAMSPipe::initial_integrate(int /*vflag*/)
   // Variable to store the error until we send the corresponding return message:
   std::unique_ptr<AMSPipe::Error> error;
   bool lattice_changed = false;
+
+  if (first_call) {
+    // LAMMPS is up and running now, make sure initialization messages get printed before
+    // we start servicing pipe calls (or they might stay buffered for a very long time)
+    if (universe->uscreen) fflush(universe->uscreen);
+    first_call = false;
+  }
 
   while (true) {
     auto msg = pipe->receive();

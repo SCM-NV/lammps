@@ -62,6 +62,8 @@ class FixAMSPipe : public Fix {
 
   std::vector<double> prevFrac;
 
+  bool first_call = true;
+
   double gradconv, potconv, posconv, stressconv, posconv3;
 };
 
