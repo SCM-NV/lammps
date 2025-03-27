@@ -383,6 +383,9 @@ else()
 endif()
 
 if(BUILD_MPI)
+  if(PKG_AMSPIPE)
+    message(FATAL_ERROR "AMSPIPE is not compatible with MPI yet")
+  endif()
   # do not include the (obsolete) MPI C++ bindings which makes
   # for leaner object files and avoids namespace conflicts
   set(MPI_CXX_SKIP_MPICXX TRUE)
